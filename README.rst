@@ -20,7 +20,7 @@ Perform the following steps in order to add `start_project` as a local command:
 
     $ chmod a+x start_project  # give execute permission to all users
     $ mkdir $HOME/.bin  # create a local bin directory
-    $ cp start_project $HOME/.bin/  # move command to your local bin directory
+    $ cp start_project $HOME/.bin/  # copy command to your local bin directory
     $ echo 'export PATH="$HOME/.bin:$PATH"' >> $HOME/.bashrc  # add local bin to your PATH permanently
     $ bash  # refresh terminal
 

@@ -1,0 +1,157 @@
+#!/bin/bash -e
+
+###############################################################################
+######################## Starting up a python project #########################
+###############################################################################
+
+# Help for syntax and script description
+red=`tput setaf 1``tput bold`
+green=`tput setaf 2``tput bold`
+reset=`tput sgr0`
+
+if [ "$1" == "-h" ] ; then
+  echo -e "${red}NAME${reset}"
+  echo -e "\t ${red}start_project${reset} -- setup project structure"
+  echo
+  echo -e "${red}SYNOPSIS${reset}"
+  echo -e "\t ${red}start_project${reset} [${red}-h${reset}] \
+${red}-name${reset} ${green}<project_name>${reset} \
+[${red}-python${reset} ${green}"'"<python_version>"'"${reset}] \\ \n\t \
+[${red}-pytest${reset} ${green}"'"<pytest_version>"'"${reset}] \
+[${red}--no-pytest${reset}] [${red}--data${reset}] \
+[${red}-remote${reset} ${green}<git_remote>${reset}]"
+  echo
+  echo -e "${red}DESCRIPTION${reset}"
+  echo -e "\t Setup python project structure with common directories and files,\
+\n\t create a virtual environment, and start a git repository.\
+\n\t The requirements to run this script are python, poetry and git."
+  echo
+  echo -e "\t The following options are available:"
+  echo
+  echo -e "\t ${red}-h${reset} \t\t Display this help message"
+  echo -e "\t ${red}-name${reset} \t\t Required project name"
+  echo -e "\t ${red}-python${reset} \t Python version for virtual environment"
+  echo -e "\t ${red}-pytest${reset} \t Pytest version for virtual environment"
+  echo -e "\t ${red}--no-pytest${reset} \t Do not include unit testing"
+  echo -e "\t ${red}--data${reset} \t Option to create data directories"
+  echo -e "\t ${red}-remote${reset} \t Address for remote git repository"
+  echo
+  exit 0
+fi
+
+# Make sure that python is installed
+if [ ! -f $(which python) ]; then
+  echo "Please install python..."
+  exit 1
+fi
+
+# Poetry
+POETRY_BIN=$(which poetry)
+if [ ! -f ${POETRY_BIN} ]; then
+  echo "Please install poetry..."
+  exit 1
+fi
+
+# Git
+GIT_BIN=$(which git)
+if [ ! -f ${GIT_BIN} ]; then
+  echo "Please install git..."
+  exit 1
+fi
+
+# Parse user input
+options=$@
+arguments=($options)
+index=0
+for argument in $options
+  do
+    index=`expr $index + 1`
+    case $argument in
+      -name) project_name=${arguments[index]};;
+      -python) python_version=${arguments[index]};;
+      -pytest) pytest_version=${arguments[index]};;
+      --no-pytest) no_pytest=true;;
+      --data) data_dirs=true;;
+      -remote) git_remote=${arguments[index]};;
+    esac
+  done
+
+# Missing required argument
+if [ ! ${project_name} ]; then
+  echo "Please specify the project name...:"
+  echo "start_project -name <project_name>"
+  exit 1
+fi
+
+# Check whether directory exists before starting
+echo "-----> Setting up project structure"
+if [ -d ${project_name} ]; then
+    echo $(printf 'Directory <%s> already exists' ${project_name})
+    echo "Please choose a diferent name..."
+  exit 1
+fi
+
+# Set up project structure with poetry
+${POETRY_BIN} new --src ${project_name}
+cd ${project_name}
+echo "-----> Project structure created with poetry"
+
+# Change python version for virtual environment if desired
+if [ ${python_version} ]; then
+  python_version=$(printf 'python = "%s"' ${python_version})
+  sed -i.bck 's|^python = .*|'"${python_version}"'|g' pyproject.toml
+  rm -f pyproject.toml.bck
+  echo "-----> Python version updated in pyproject.toml"
+fi
+
+# Change pytest version for virtual environment if desired
+if [ ${pytest_version} ]; then
+  pytest_version=$(printf 'pytest = "%s"' ${pytest_version})
+  sed -i.bck 's|^pytest = .*|'"${pytest_version}"'|g' pyproject.toml
+  rm -f pyproject.toml.bck
+  echo "-----> Pytest version updated in pyproject.toml"
+fi
+
+# Remove unit testing dependencies
+if [ ${no_pytest} ]; then
+  rm -rf tests
+  sed -i.bck '/^pytest = .*/d' pyproject.toml
+  rm -f pyproject.toml.bck
+  echo "-----> Removed unit testing dependencies"
+fi
+
+# Create virtual environment
+${POETRY_BIN} install
+echo "-----> Virtual environment created with poetry"
+
+# Make data directories if desired
+if [ ${data_dirs} ]; then
+  mkdir data/
+  mkdir data/raw/
+  mkdir data/processed/
+  echo "-----> Data directories created"
+fi
+
+# Start git repository
+${GIT_BIN} init
+echo "-----> Git repository created"
+
+# Get .gitignore template
+${GIT_BIN} fetch https://github.com/aiaragomes/start_python_project.git
+${GIT_BIN} checkout FETCH_HEAD -- .gitignore
+echo "-----> .gitignore template downloaded"
+
+# Setup remote for git if desired
+if [ ${git_remote} ]; then
+  ${GIT_BIN} remote add origin ${git_remote}
+  echo "-----> Git remote added"
+fi
+
+# Get Makefile template
+${GIT_BIN} checkout FETCH_HEAD -- Makefile
+echo "-----> Makefile template downloaded"
+
+# Final message to user
+echo "-----> Your project structure was succesfully created! ;)"
+
+
